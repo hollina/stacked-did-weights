@@ -1,0 +1,16 @@
+.etable {
+width: 100%;
+height: calc(100% - 1em); /* Adjust 3em based on the height of your header, if necessary */
+display: flex;
+align-items: center;
+justify-content: center;
+}
+ 
+.etable img {
+max-width: 200%;
+max-height: 200%;
+width: auto;
+height: auto;
+object-fit: contain;
+object-position: center;
+}

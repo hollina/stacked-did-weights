@@ -44,17 +44,17 @@ source("misc/theme_shyam.R")
 my_style = style.tex("aer", model.format = "(i)")
 
 # markdown = TRUE is only useful in Rmarkdown documents
-setFixest_etable(style.tex = my_style, 
-                 page.width = "a4", 
-                 fitstat = ~ n, 
-                 markdown = TRUE)
+#setFixest_etable(style.tex = my_style, 
+#                 page.width = "a4", 
+#                 fitstat = ~ n, 
+#                 markdown = TRUE)
 ```
 
 ## Quick Start
 
 The stacked DID estimator we describe in our paper is easy to implement using standard regression packages and commands in both Stata and R. The main task is to build the stacked data set and use sample shares to compute the weights. 
 
-We wrote two functions -- available in both Stata and R -- to automate this process.
+We wrote two functions -- available in both Stata and R -- to automate this process. Each function is a bit longer and more repetitive than it strictly needs to be. But we've opted for a more verbose set for this tutorial to keep things as clear as possible. We will provide a faster single function for both R and Stata that handles more complex settings and is a bit tidier. 
 
 This tutorial shows you how to implement a stacked DID regression using these functions. The mission is simply to show you how to make a stacked data set, how to make the weights, and how to estimate the regression. We focus on the example from the paper, which is about the effects of the ACA Medicaid expansion on uninsurance rates using data from the American Community Survey downloaded from IPUMS.
 
@@ -85,7 +85,7 @@ import delimited "data/acs1860_unins_2008_2021.csv", clear
 
 ## The `create_sub_exp()` function
 
-We developed a function called `create_sub_exp()` to construct a sub-experimental data set for a specified adoption year. The code that defines the function is below in both Stata and R. 
+We use a function called `create_sub_exp()` to construct a sub-experimental data set for a specified adoption year. The code that defines the function is below in both Stata and R. 
 
 The inputs and outputs of the `create_sub_exp()` are:
 
@@ -97,7 +97,7 @@ The inputs and outputs of the `create_sub_exp()` are:
     -   `focalAdoptionTime`: user specified number indicating the focal adoption time for this sub-experiment
     -   `kappa_pre`: user specified number of pre-treatment periods
     -   `kappa_post`: user specified number of post-treatment periods
--   outputs: A data.table that consists of the treated units that adopt in `timeID` `adoptTime`, the clean controls that adopt no earlier than `adoptTime` + `kappa_post`, and only the calendar time units that fall within $adoptTime - kappa_{pre}$ and $atime + kappa_{post}$. The output table consists of one row for each state-year observation in the sub-experimental data set. The output data set has the following variables: XXXXX. Explain the \`feasible' variable.
+-   outputs: A data.table that consists of the treated units that adopt in `timeID` `adoptTime`, the clean controls that adopt no earlier than `adoptTime` + `kappa_post`, and only the calendar time units that fall within $adoptTime - kappa_{pre}$ and $atime + kappa_{post}$. The output table consists of one row for each state-year observation in the sub-experimental data set. There is also a `feasible` variable that indicates whether or not a given state-year observation is "allowed" given our trimming restrictions. 
 
 The code to create the `create_sub_exp()` function in Stata and R is below.
 
@@ -252,7 +252,7 @@ create_sub_exp, ///
 use temp/subexp2014.dta, clear
 
 * Summarize
-sum statefip year adopt_year unins  treat  post event_time feasible sub_exp
+sum statefip year adopt_year unins  treat  post event_time feasible sub_exp 
 
 * Restore dataset
 restore
@@ -297,16 +297,17 @@ stackfull = rbindlist(sub_experiments)
 stacked_dtc = stackfull[feasible == 1]
 
 # Summarize
-#datasummary(All(stacked_dtc) ~ N + Mean + SD + Min + Max,
-#            data = stacked_dtc,
-#            output = 'markdown')
+datasummary(All(stacked_dtc) ~ N + Mean + SD + Min + Max,
+            data = stacked_dtc,
+            output = 'markdown')
+
+# Treated, control, and total count by stack
 stacked_dtc[event_time==0, 
             .(N_treated = fsum(treat), 
               N_control = fsum(1-treat), 
               N_total = .N
               ), 
             by = sub_exp][order(sub_exp)]
-
 ```
 
 ### Stata
@@ -365,6 +366,24 @@ foreach j of numlist `alist'  {
 * Summarize
 sum statefip year adopt_year unins  treat  post event_time feasible sub_exp
 
+* Treated, control, and total count by stack
+preserve
+keep if event_time == 0
+gen N_treated = treat 
+gen N_control = 1 - treat 
+gen N_total = 1
+collapse (sum) N_treated N_control N_total, by(sub_exp)
+list sub_exp N_treated N_control N_total in 1/4
+/*
+sumup treat if event_time == 0, s(N)
+stacked_dtc[event_time==0, 
+            .(N_treated = fsum(treat), 
+              N_control = fsum(1-treat), 
+              N_total = .N
+              ), 
+            by = sub_exp][order(sub_exp)]
+*/
+restore
 ```
 :::
 
@@ -521,7 +540,7 @@ Show the results
 ::: panel-tabset
 ### R
 
-```{r, results = 'asis'}
+```{r}
 # display results
 etable(weight_stack)
 
