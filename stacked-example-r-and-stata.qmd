@@ -215,7 +215,7 @@ Let's use `create_sub_exp()` to build a single sub-experimental data set for the
 ::: panel-tabset
 ### R
 
-```{r, echo = FALSE}
+```{r}
 # Run this function with focal year 2014
 subexp2014 = create_sub_exp(
               dataset = dtc,
